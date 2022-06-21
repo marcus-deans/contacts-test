@@ -14,15 +14,16 @@ from sqlalchemy.dialects.postgresql import JSONB
 import os
 import urllib
 
-DATABASE_URL = "sqlite:///./test.db"
+# DATABASE_URL = "sqlite:///./test.db"
 
 # host_server = os.environ.get('host_server', 'localhost')
 # db_server_port = urllib.parse.quote_plus(str(os.environ.get('db_server_port', '5432')))
 # database_name = os.environ.get('database_name', 'fastapi')
 # db_username = urllib.parse.quote_plus(str(os.environ.get('db_username', 'postgres')))
 # db_password = urllib.parse.quote_plus(str(os.environ.get('db_password', 'secret')))
-# ssl_mode = urllib.parse.quote_plus(str(os.environ.get('ssl_mode','prefer')))
+# ssl_mode = urllib.parse.quote_plus(str(os.environ.get('ssl_mode','require')))
 # DATABASE_URL = 'postgresql://{}:{}@{}:{}/{}?sslmode={}'.format(db_username, db_password, host_server, db_server_port, database_name, ssl_mode)
+DATABASE_URL = "postgresql://bntliqohchcrzk:ee8f7b47350fa6d25f66d75be5c186636edd9a5fa0d4ee32d43aaff13b75ed59@ec2-52-22-136-117.compute-1.amazonaws.com:5432/d2e1q9sqmd67oj"
 
 database = databases.Database(DATABASE_URL)
 
@@ -47,20 +48,21 @@ groups = sqlalchemy.Table(
     "groups",
     metadata,
     sqlalchemy.Column("group_id", sqlalchemy.Integer, primary_key=True),
+    #TODO: explore one to many mapping
     sqlalchemy.Column("users_id", sqlalchemy.types.ARRAY(Integer)),
 )
 
-engine = sqlalchemy.create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
-)
-metadata.create_all(engine)
+# engine = sqlalchemy.create_engine(
+#     DATABASE_URL, connect_args={"check_same_thread": False}
+# )
+# metadata.create_all(engine)
 
 
 # PostgreSQL version
-# engine = sqlalchemy.create_engine(
-#     DATABASE_URL, pool_size=3, max_overflow=0
-# )
-# metadata.create_all(engine)
+engine = sqlalchemy.create_engine(
+    DATABASE_URL, pool_size=3, max_overflow=0
+)
+metadata.create_all(engine)
 
 # Professional parameters used in both creation, updates, etc.
 class ProfessionalParameters(BaseModel):
@@ -169,10 +171,8 @@ async def create_user(user: UserCreate):
         email_address=user.email_address,
         linkedin_url=user.linkedin_url,
         instagram_url=user.instagram_url,
-        # professional_parameters=json.dumps(user.professional_parameters, default=lambda o: o.__dict__,sort_keys=True, indent=4),
         professional_parameters=jsonpickle.encode(user.professional_parameters),
-        # professional_parameters=json.dumps(jsonable_encoder(user.professional_parameters)),
-        personal_parameters=json.dumps(jsonable_encoder(user.personal_parameters)),
+        personal_parameters=jsonpickle.encode(user.personal_parameters),
         professional_years=user.professional_years,
     )
     print(query)
@@ -208,13 +208,17 @@ async def read_professional_user(contact_phone_number: int):
     query_result = await database.fetch_one(query)
     return query_result
 
-#, response_model=ProfessionalParameters
-@app.get("/users/{contact_phone_number}/professional-attributes", status_code=status.HTTP_200_OK)
-async def read_professional_details(contact_phone_number:int):
-    query = users.select(users.c.email_address).where(users.c.phone_number == contact_phone_number)
+@app.get("/users/{contact_phone_number}/professional-parameters", response_model = ProfessionalParameters, status_code=status.HTTP_200_OK)
+async def read_professional_parameters(contact_phone_number:int):
+    query = users.select().where(users.c.phone_number == contact_phone_number)
     query_result = await database.fetch_one(query)
-    return query_result
-    # return jsonpickle.decode(query_result) if query_result is not None else None
+    return jsonpickle.decode(query_result.professional_parameters) if query_result is not None else None
+
+@app.get("/users/{contact_phone_number}/personal-parameters", response_model = PersonalParameters, status_code=status.HTTP_200_OK)
+async def read_professional_parameters(contact_phone_number:int):
+    query = users.select().where(users.c.phone_number == contact_phone_number)
+    query_result = await database.fetch_one(query)
+    return jsonpickle.decode(query_result.personal_parameters) if query_result is not None else None
 
 @app.post("/users/{user_id}/add-group/{group_id}", status_code=status.HTTP_200_OK)
 async def add_user_to_group(user_id:int, group_id:int):
