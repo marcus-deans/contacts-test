@@ -60,7 +60,7 @@ groups = sqlalchemy.Table(
 
 # PostgreSQL version
 engine = sqlalchemy.create_engine(
-    DATABASE_URL, pool_size=3, max_overflow=0
+    DATABASE_URL
 )
 metadata.create_all(engine)
 
@@ -139,7 +139,7 @@ class Group(BaseModel):
     id: int
     contact_ids: List[int]
 
-app = FastAPI(title="REST API using FastAPI PostgreSQL Async EndPoints")
+app = FastAPI(title="Enhanced Contacts API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -215,7 +215,7 @@ async def read_professional_parameters(contact_phone_number:int):
     return jsonpickle.decode(query_result.professional_parameters) if query_result is not None else None
 
 @app.get("/users/{contact_phone_number}/personal-parameters", response_model = PersonalParameters, status_code=status.HTTP_200_OK)
-async def read_professional_parameters(contact_phone_number:int):
+async def read_personal_parameters(contact_phone_number:int):
     query = users.select().where(users.c.phone_number == contact_phone_number)
     query_result = await database.fetch_one(query)
     return jsonpickle.decode(query_result.personal_parameters) if query_result is not None else None
