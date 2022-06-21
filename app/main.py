@@ -1,10 +1,15 @@
-from typing import List, Optional
+import json
+from typing import List, Optional, Dict, Any
 
+import jsonpickle
 import databases
 import sqlalchemy
+from asyncpg import Record
 from fastapi import FastAPI, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Json
+from sqlalchemy import Integer
 from sqlalchemy.dialects.postgresql import JSONB
 import os
 import urllib
@@ -33,9 +38,16 @@ users = sqlalchemy.Table(
     sqlalchemy.Column("email_address", sqlalchemy.String),
     sqlalchemy.Column("linkedin_url", sqlalchemy.String),
     sqlalchemy.Column("instagram_url", sqlalchemy.String),
-    sqlalchemy.Column("industry_parameters", sqlalchemy.dialects.postgresql.JSON),
+    sqlalchemy.Column("professional_parameters", sqlalchemy.dialects.postgresql.JSON),
     sqlalchemy.Column("personal_parameters", sqlalchemy.dialects.postgresql.JSON),
-    sqlalchemy.Column("industry_years",sqlalchemy.Integer),
+    sqlalchemy.Column("professional_years", sqlalchemy.Integer),
+)
+
+groups = sqlalchemy.Table(
+    "groups",
+    metadata,
+    sqlalchemy.Column("group_id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column("users_id", sqlalchemy.types.ARRAY(Integer)),
 )
 
 engine = sqlalchemy.create_engine(
@@ -43,21 +55,23 @@ engine = sqlalchemy.create_engine(
 )
 metadata.create_all(engine)
 
+
 # PostgreSQL version
 # engine = sqlalchemy.create_engine(
 #     DATABASE_URL, pool_size=3, max_overflow=0
 # )
 # metadata.create_all(engine)
 
-# Industry parameters used in both creation, updates, etc.
-class IndustryParameters(BaseModel):
+# Professional parameters used in both creation, updates, etc.
+class ProfessionalParameters(BaseModel):
     experience_years: Optional[int]
     company_title: Optional[str]
     company_position: Optional[str]
-    industry: Optional[str]
+    professional: Optional[str]
     backend: Optional[bool]
     frontend: Optional[bool]
     cloud: Optional[bool]
+
 
 # Personal parameter used in creation, updates, etc.
 class PersonalParameters(BaseModel):
@@ -71,7 +85,8 @@ class PersonalParameters(BaseModel):
     gamer: Optional[bool]
     pets: Optional[bool]
 
-#Model of JSON payload for Create and Update user endpoints
+
+# Model of JSON payload for Create and Update user endpoints
 class UserCreate(BaseModel):
     first_name: str
     last_name: str
@@ -79,11 +94,12 @@ class UserCreate(BaseModel):
     email_address: str
     linkedin_url: Optional[str] = ''
     instagram_url: Optional[str] = ''
-    industry_parameters: IndustryParameters | None = None
+    professional_parameters: ProfessionalParameters | None = None
     personal_parameters: PersonalParameters | None = None
-    industry_years: Optional[int] = -1
+    professional_years: Optional[int] = -1
 
-#Model of JSON response for Retrieve users collection, or Retrieve single user
+
+# Model of JSON response for Retrieve users collection, or Retrieve single user
 class User(BaseModel):
     id: int
     first_name: str
@@ -91,29 +107,35 @@ class User(BaseModel):
     phone_number: int
     email_address: str
 
-#Model of JSON response for Update users collection
+
+# Model of JSON response for Update users collection
 class UserUpdate(BaseModel):
     id: int
-    first_name: Optional[str] 
+    first_name: Optional[str]
     last_name: Optional[str]
     phone_number: Optional[int]
     email_address: Optional[str]
     linkedin_url: Optional[str]
     instagram_url: Optional[str]
-    industry_parameters: Optional[Json]
-    industry_years: Optional[int]
+    professional_parameters: Optional[Json]
+    professional_years: Optional[int]
 
-#Model of JSON response for Retrieve personal information of contact
+
+# Model of JSON response for Retrieve personal information of contact
 class UserPersonal(User):
     instagram_url: str
-    personal_parameters: PersonalParameters
+    # personal_parameters: PersonalParameters | None
 
-#Model of JSON response for Retrieve professional information of contact
+
+# Model of JSON response for Retrieve professional information of contact
 class UserProfessional(User):
     linkedin_url: str
-    industry_years: int
-    industry_parameters: IndustryParameters
+    professional_years: int
+    # professional_parameters: ProfessionalParameters | None
 
+class Group(BaseModel):
+    id: int
+    contact_ids: List[int]
 
 app = FastAPI(title="REST API using FastAPI PostgreSQL Async EndPoints")
 app.add_middleware(
@@ -123,22 +145,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
-#Specify origins more precisely by substituting with
+
+
+# Specify origins more precisely by substituting with
 # allow_origins=['client-facing-example-app.com', 'localhost:5000']
 
 @app.on_event("startup")
 async def startup():
     await database.connect()
 
+
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
 
 
-@app.post("/users/", response_model=User, status_code = status.HTTP_201_CREATED)
+@app.post("/users/", response_model=User, status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreate):
-    print("is this wokinrg?")
-    print(user)
     query = users.insert().values(
         first_name=user.first_name,
         last_name=user.last_name,
@@ -146,13 +169,18 @@ async def create_user(user: UserCreate):
         email_address=user.email_address,
         linkedin_url=user.linkedin_url,
         instagram_url=user.instagram_url,
-        industry_parameters=sqlalchemy.JSON(user.industry_parameters),
-        industry_years = user.industry_years,
+        # professional_parameters=json.dumps(user.professional_parameters, default=lambda o: o.__dict__,sort_keys=True, indent=4),
+        professional_parameters=jsonpickle.encode(user.professional_parameters),
+        # professional_parameters=json.dumps(jsonable_encoder(user.professional_parameters)),
+        personal_parameters=json.dumps(jsonable_encoder(user.personal_parameters)),
+        professional_years=user.professional_years,
     )
+    print(query)
     last_record_id = await database.execute(query)
     return {**user.dict(), "id": last_record_id}
 
-@app.put("/users/{user_id}/", response_model=User, status_code = status.HTTP_200_OK)
+
+@app.put("/users/{user_id}/", response_model=User, status_code=status.HTTP_200_OK)
 async def update_user(user_id: int, payload: UserUpdate):
     query = users.update().where(users.c.id == user_id).values(
         first_name=payload.first_name,
@@ -161,33 +189,59 @@ async def update_user(user_id: int, payload: UserUpdate):
         email_address=payload.email_address,
         linkedin_url=payload.linkedin_url,
         instagram_url=payload.instagram_url,
-        industry_parameters=payload.industry_parameters,
-        industry_years = payload.industry_years,
+        professional_parameters=payload.professional_parameters,
+        professional_years=payload.professional_years,
     )
     await database.execute(query)
     return {**payload.dict(), "id": user_id}
 
-@app.get("/users/{contact_phone_number}/personal", response_model=UserPersonal, status_code = status.HTTP_200_OK)
-async def read_personal_user(contact_phone_number:int):
+
+@app.get("/users/{contact_phone_number}/personal", response_model=UserPersonal, status_code=status.HTTP_200_OK)
+async def read_personal_user(contact_phone_number: int):
     query = users.select().where(users.c.phone_number == contact_phone_number)
     return await database.fetch_one(query)
 
-@app.get("/users/{contact_phone_number}/professional", response_model=UserProfessional, status_code = status.HTTP_200_OK)
-async def read_professional_user(contact_phone_number:int):
-    query = users.select().where(users.c.phone_number == contact_phone_number)
-    return await database.fetch_one(query)
 
-@app.get("/users/", response_model=List[User], status_code = status.HTTP_200_OK)
+@app.get("/users/{contact_phone_number}/professional", response_model=UserProfessional, status_code=status.HTTP_200_OK)
+async def read_professional_user(contact_phone_number: int):
+    query = users.select().where(users.c.phone_number == contact_phone_number)
+    query_result = await database.fetch_one(query)
+    return query_result
+
+#, response_model=ProfessionalParameters
+@app.get("/users/{contact_phone_number}/professional-attributes", status_code=status.HTTP_200_OK)
+async def read_professional_details(contact_phone_number:int):
+    query = users.select(users.c.email_address).where(users.c.phone_number == contact_phone_number)
+    query_result = await database.fetch_one(query)
+    return query_result
+    # return jsonpickle.decode(query_result) if query_result is not None else None
+
+@app.post("/users/{user_id}/add-group/{group_id}", status_code=status.HTTP_200_OK)
+async def add_user_to_group(user_id:int, group_id:int):
+    # query = groups.insert().values(group_id=group_id, users_id=)
+    # last_record_id = await database.execute(query)
+    # return {**groups.dict(), "id": last_record_id}
+    # groups.update().where(groups.c.group_id==group_id).values(groups.c.users_id=text(f'array_append({groups.c.users_id.name},{user_id}'))
+    return 200
+
+@app.get("/users/{user_id}/read-group/{group_id}", status_code=status.HTTP_102_PROCESSING)
+async def read_contacts_from_group(user_id:int, group_id:int):
+    return 202
+
+
+@app.get("/users/", response_model=List[User], status_code=status.HTTP_200_OK)
 async def read_users(skip: int = 0, take: int = 20):
     query = users.select().offset(skip).limit(take)
     return await database.fetch_all(query)
 
-@app.get("/users/{user_id}/", response_model=User, status_code = status.HTTP_200_OK)
+
+@app.get("/users/{user_id}/", response_model=User, status_code=status.HTTP_200_OK)
 async def read_users(user_id: int):
     query = users.select().where(users.c.id == user_id)
     return await database.fetch_one(query)
 
-@app.delete("/users/{user_id}/", status_code = status.HTTP_200_OK)
+
+@app.delete("/users/{user_id}/", status_code=status.HTTP_200_OK)
 async def remove_user(user_id: int):
     query = users.delete().where(users.c.id == user_id)
     await database.execute(query)
