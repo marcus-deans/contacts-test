@@ -45,14 +45,36 @@ users = sqlalchemy.Table(
     #sqlalchemy.Column("professional_years", sqlalchemy.Integer),
 )
 
+relationships = sqlalchemy.Table(
+    "relationships",
+    metadata,
+    sqlalchemy.Column("relationship_id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column("initiator_id", sqlalchemy.Integer),
+    sqlalchemy.Column("receiver_id", sqlalchemy.Integer),
+    #PHONE NUMBER IS SUPPOSED TO BE A STRING!!
+    sqlalchemy.Column("isPersonal", sqlalchemy.Boolean)
+)
 
 groups = sqlalchemy.Table(
     "groups",
     metadata,
     sqlalchemy.Column("group_id", sqlalchemy.Integer, primary_key=True),
-    #TODO: explore one to many mapping
-    sqlalchemy.Column("users_id", sqlalchemy.types.ARRAY(Integer)),
+    sqlalchemy.Column("member1", sqlalchemy.Integer),
+    sqlalchemy.Column("member2", sqlalchemy.Integer),
+    #PHONE NUMBER IS SUPPOSED TO BE A STRING!!
+    sqlalchemy.Column("member3", sqlalchemy.Integer),
+    sqlalchemy.Column("member4", sqlalchemy.Integer),
+    sqlalchemy.Column("member5", sqlalchemy.Integer)
 )
+
+
+# groups = sqlalchemy.Table(
+#     "groups",
+#     metadata,
+#     sqlalchemy.Column("group_id", sqlalchemy.Integer, primary_key=True),
+#     #TODO: explore one to many mapping
+#     sqlalchemy.Column("users_id", sqlalchemy.types.ARRAY(Integer)),
+# )
 
 # engine = sqlalchemy.create_engine(
 #     DATABASE_URL, connect_args={"check_same_thread": False}
@@ -141,9 +163,24 @@ class UserProfessional(User):
     #professional_years: int
     #professional_parameters: ProfessionalParameters | None
 
+# class Group(BaseModel):
+#     id: int
+#     contact_ids: List[int]
+
 class Group(BaseModel):
-    id: int
-    contact_ids: List[int]
+    group_id: Optional[str]
+    member1: Optional[str]
+    member2: Optional[str]
+    member3: Optional[str]
+    member4: Optional[str]
+    member5: Optional[str]
+
+class Relationship(BaseModel):
+    relationship_id: Optional[str]
+    initiator_id: Optional[str]
+    receiver_id: Optional[str]
+    isPersonal: Optional[bool]
+
 
 app = FastAPI(title="Enhanced Contacts API")
 app.add_middleware(
