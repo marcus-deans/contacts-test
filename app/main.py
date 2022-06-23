@@ -35,14 +35,16 @@ users = sqlalchemy.Table(
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
     sqlalchemy.Column("first_name", sqlalchemy.String),
     sqlalchemy.Column("last_name", sqlalchemy.String),
-    sqlalchemy.Column("phone_number", sqlalchemy.Integer, unique=True),
+    #PHONE NUMBER IS SUPPOSED TO BE A STRING!!
+    sqlalchemy.Column("phone_number", sqlalchemy.String, unique=True),
     sqlalchemy.Column("email_address", sqlalchemy.String),
-    sqlalchemy.Column("linkedin_url", sqlalchemy.String),
-    sqlalchemy.Column("instagram_url", sqlalchemy.String),
+    #sqlalchemy.Column("linkedin_url", sqlalchemy.String),
+    sqlalchemy.Column("instagram_handle", sqlalchemy.String),
     sqlalchemy.Column("professional_parameters", sqlalchemy.dialects.postgresql.JSON),
     sqlalchemy.Column("personal_parameters", sqlalchemy.dialects.postgresql.JSON),
-    sqlalchemy.Column("professional_years", sqlalchemy.Integer),
+    #sqlalchemy.Column("professional_years", sqlalchemy.Integer),
 )
+
 
 groups = sqlalchemy.Table(
     "groups",
@@ -66,14 +68,14 @@ metadata.create_all(engine)
 
 # Professional parameters used in both creation, updates, etc.
 class ProfessionalParameters(BaseModel):
-    experience_years: Optional[int]
-    company_title: Optional[str]
-    company_position: Optional[str]
-    professional: Optional[str]
-    backend: Optional[bool]
-    frontend: Optional[bool]
-    cloud: Optional[bool]
-
+    machine_learning: Optional[bool]
+    has_mba: Optional[bool]
+    has_cs: Optional[bool]
+    has_engineering: Optional[bool]
+    finance: Optional[bool]
+    marketing: Optional[bool]
+    consulting: Optional[bool]
+    startup: Optional[bool]
 
 # Personal parameter used in creation, updates, etc.
 class PersonalParameters(BaseModel):
@@ -83,57 +85,61 @@ class PersonalParameters(BaseModel):
     musician: Optional[bool]
     music_listener: Optional[bool]
     foodie: Optional[bool]
-    fashion: Optional[bool]
+    #fashion: Optional[bool]
     gamer: Optional[bool]
     pets: Optional[bool]
 
 
-# Model of JSON payload for Create and Update user endpoints
-class UserCreate(BaseModel):
-    first_name: str
-    last_name: str
-    phone_number: int
-    email_address: str
-    linkedin_url: Optional[str] = ''
-    instagram_url: Optional[str] = ''
-    professional_parameters: ProfessionalParameters | None = None
-    personal_parameters: PersonalParameters | None = None
-    professional_years: Optional[int] = -1
+# # Model of JSON payload for Create and Update user endpoints
+# class UserCreate(BaseModel):
+#     first_name: str
+#     last_name: str
+#     phone_number: int
+#     email_address: str
+#     linkedin_url: Optional[str] = ''
+#     instagram_url: Optional[str] = ''
+#     professional_parameters: ProfessionalParameters | None = None
+#     personal_parameters: PersonalParameters | None = None
+#     professional_years: Optional[int] = -1
 
 
 # Model of JSON response for Retrieve users collection, or Retrieve single user
 class User(BaseModel):
     id: int
-    first_name: str
-    last_name: str
-    phone_number: int
-    email_address: str
-
-
-# Model of JSON response for Update users collection
-class UserUpdate(BaseModel):
-    id: int
     first_name: Optional[str]
     last_name: Optional[str]
-    phone_number: Optional[int]
+    phone_number: Optional[str]
     email_address: Optional[str]
-    linkedin_url: Optional[str]
-    instagram_url: Optional[str]
-    professional_parameters: Optional[Json]
-    professional_years: Optional[int]
+    location: Optional[str]
+    instagram_handle: Optional[str]
+    personal_parameters: PersonalParameters | None = None
+    professional_parameters: ProfessionalParameters |  None = None
+
+
+# # Model of JSON response for Update users collection
+# class UserUpdate(BaseModel):
+#     id: int
+#     first_name: Optional[str]
+#     last_name: Optional[str]
+#     phone_number: Optional[int]
+#     email_address: Optional[str]
+#     linkedin_url: Optional[str]
+#     instagram_url: Optional[str]
+#     professional_parameters: Optional[Json]
+#     professional_years: Optional[int]
 
 
 # Model of JSON response for Retrieve personal information of contact
 class UserPersonal(User):
-    instagram_url: str
+    instagram_handle: str
     # personal_parameters: PersonalParameters | None
 
 
 # Model of JSON response for Retrieve professional information of contact
 class UserProfessional(User):
     linkedin_url: str
-    professional_years: int
-    # professional_parameters: ProfessionalParameters | None
+    #professional_years: int
+    #professional_parameters: ProfessionalParameters | None
 
 class Group(BaseModel):
     id: int
@@ -163,17 +169,17 @@ async def shutdown():
 
 
 @app.post("/users/", response_model=User, status_code=status.HTTP_201_CREATED)
-async def create_user(user: UserCreate):
+async def create_user(user: User):
     query = users.insert().values(
         first_name=user.first_name,
         last_name=user.last_name,
         phone_number=user.phone_number,
         email_address=user.email_address,
-        linkedin_url=user.linkedin_url,
-        instagram_url=user.instagram_url,
+        #linkedin_url=user.linkedin_url,
+        instagram_handle=user.instagram_handle,
         professional_parameters=jsonpickle.encode(user.professional_parameters),
         personal_parameters=jsonpickle.encode(user.personal_parameters),
-        professional_years=user.professional_years,
+        #professional_years=user.professional_years,
     )
     print(query)
     last_record_id = await database.execute(query)
@@ -181,41 +187,41 @@ async def create_user(user: UserCreate):
 
 
 @app.put("/users/{user_id}/", response_model=User, status_code=status.HTTP_200_OK)
-async def update_user(user_id: int, payload: UserUpdate):
+async def update_user(user_id: int, payload: User):
     query = users.update().where(users.c.id == user_id).values(
         first_name=payload.first_name,
         last_name=payload.last_name,
         phone_number=payload.phone_number,
         email_address=payload.email_address,
-        linkedin_url=payload.linkedin_url,
-        instagram_url=payload.instagram_url,
+        #linkedin_url=payload.linkedin_url,
+        instagram_handle=payload.instagram_handle,
         professional_parameters=payload.professional_parameters,
-        professional_years=payload.professional_years,
+        #professional_years=payload.professional_years,
     )
     await database.execute(query)
     return {**payload.dict(), "id": user_id}
 
 
 @app.get("/users/{contact_phone_number}/personal", response_model=UserPersonal, status_code=status.HTTP_200_OK)
-async def read_personal_user(contact_phone_number: int):
+async def read_personal_user(contact_phone_number: str):
     query = users.select().where(users.c.phone_number == contact_phone_number)
     return await database.fetch_one(query)
 
 
 @app.get("/users/{contact_phone_number}/professional", response_model=UserProfessional, status_code=status.HTTP_200_OK)
-async def read_professional_user(contact_phone_number: int):
+async def read_professional_user(contact_phone_number: str):
     query = users.select().where(users.c.phone_number == contact_phone_number)
     query_result = await database.fetch_one(query)
     return query_result
 
 @app.get("/users/{contact_phone_number}/professional-parameters", response_model = ProfessionalParameters, status_code=status.HTTP_200_OK)
-async def read_professional_parameters(contact_phone_number:int):
+async def read_professional_parameters(contact_phone_number:str):
     query = users.select().where(users.c.phone_number == contact_phone_number)
     query_result = await database.fetch_one(query)
     return jsonpickle.decode(query_result.professional_parameters) if query_result is not None else None
 
 @app.get("/users/{contact_phone_number}/personal-parameters", response_model = PersonalParameters, status_code=status.HTTP_200_OK)
-async def read_personal_parameters(contact_phone_number:int):
+async def read_personal_parameters(contact_phone_number:str):
     query = users.select().where(users.c.phone_number == contact_phone_number)
     query_result = await database.fetch_one(query)
     return jsonpickle.decode(query_result.personal_parameters) if query_result is not None else None
