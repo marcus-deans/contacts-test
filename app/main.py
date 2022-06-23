@@ -293,3 +293,50 @@ async def remove_user(user_id: int):
     query = users.delete().where(users.c.id == user_id)
     await database.execute(query)
     return {"message": "User with id: {} deleted successfully!".format(user_id)}
+
+#CREATE PERSONAL RELATIONSHIPS
+@app.post("/relationships/{user_id}/personal/{contact_phone_number}", response_model=Relationship, status_code=status.HTTP_200_OK)
+async def create_personal_relationships(initiator_id: str, receiver_id: str):
+    query = relationships.insert().values(
+        #CHANGE THE RELATIONSHIP ID
+        relationship_id="",
+        initiator_id=initiator_id,
+        receiver_id=receiver_id,
+        isPersonal=True
+    )
+    print(query)
+    last_record_id = await database.execute(query)
+    #Check the return statement
+    return {**initiator_id.dict(), "id": last_record_id}
+
+#CREATE PROFESSIONAL RELATIONSHIPS
+@app.post("/relationships/{user_id}/professional/{contact_phone_number}", response_model=Relationship, status_code=status.HTTP_200_OK)
+async def create_professional_relationships(initiator_id: str, receiver_id: str):
+    query = relationships.insert().values(
+        #CHANGE THE RELATIONSHIP ID
+        relationship_id="",
+        initiator_id=initiator_id,
+        receiver_id=receiver_id,
+        isPersonal=False
+    )
+    print(query)
+    last_record_id = await database.execute(query)
+    #Check the return statement
+    return {**initiator_id.dict(), "id": last_record_id}
+
+#CREATE GROUP
+@app.post("/groups/{user_id}/create/{group_id}", response_model=Group, status_code=status.HTTP_200_OK)
+async def create_professional_relationships(group_id: str, member1: str,  member2: str,  member3: str,  member4: str,  member5: str):
+    query = relationships.insert().values(
+        #CHANGE THE GROUP ID
+        group_id = group_id,
+        member1=member1,
+        member2=member2,
+        member3=member3,
+        member4=member4,
+        member5=member5
+    )
+    print(query)
+    last_record_id = await database.execute(query)
+    #Check the return statement
+    return {**group_id.dict(), "id": last_record_id}
