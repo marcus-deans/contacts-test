@@ -374,6 +374,7 @@ async def fetch_contacts_personal(user_id: str):
                 "location": query_result.location,
                 "instagram_handle": query_result.instagram_handle,
                 "personal_parameters": decodedPersonalParameters,
+                "professional_parameters": None,
             }
         personal_contacts.append(newResponse)
     return personal_contacts
@@ -396,6 +397,7 @@ async def fetch_contacts_professional(user_id: str):
                 "email_address": query_result.email_address,
                 "location": query_result.location,
                 "instagram_handle": query_result.instagram_handle,
+                "personal_parameters": None,
                 "professional_parameters": decodedProfessionalParameters,
             }
         professional_contacts.append(newResponse)
