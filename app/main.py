@@ -337,6 +337,7 @@ async def test_fetch_professional_relationships(user_id: str):
     else:
         raise HTTPException(status_code=404, detail="No professional relationships exist")
 
+
 @app.get("/testing/{user_id}/relationships/professional/ids", response_model=List[str], status_code=status.HTTP_200_OK)
 async def test_fetch_professional_relationships_ids(user_id: str):
     query = relationships.select().where(
@@ -360,48 +361,51 @@ async def fetch_contacts_personal(user_id: str):
     personal_relationships_ids = await test_fetch_personal_relationships_ids(user_id)
     personal_contacts = []
     for personal_id in personal_relationships_ids:
-        query=users.select().where(users.c.phone_number == personal_id)
+        query = users.select().where(users.c.phone_number == personal_id)
         query_result = await database.fetch_one(query)
         if not query_result:
-            raise HTTPException(status_code=305, detail="The contact could not be found")
+            continue
+            # raise HTTPException(status_code=305, detail="The contact could not be found")
         decodedProfessionalParameters = jsonpickle.decode(query_result.professional_parameters)
         decodedPersonalParameters = jsonpickle.decode(query_result.personal_parameters)
         newResponse = {
-                "first_name": query_result.first_name,
-                "last_name": query_result.last_name,
-                "phone_number": query_result.phone_number,
-                "email_address": query_result.email_address,
-                "location": query_result.location,
-                "instagram_handle": query_result.instagram_handle,
-                "personal_parameters": decodedPersonalParameters,
-                "professional_parameters": None,
-            }
+            "first_name": query_result.first_name,
+            "last_name": query_result.last_name,
+            "phone_number": query_result.phone_number,
+            "email_address": query_result.email_address,
+            "location": query_result.location,
+            "instagram_handle": query_result.instagram_handle,
+            "personal_parameters": decodedPersonalParameters,
+            "professional_parameters": None,
+        }
         personal_contacts.append(newResponse)
     return personal_contacts
+
 
 @app.get("/fetch/{user_id}/professional", response_model=List[UserProfessional], status_code=status.HTTP_200_OK)
 async def fetch_contacts_professional(user_id: str):
     professional_relationships_ids = await test_fetch_professional_relationships_ids(user_id)
     professional_contacts = []
     for professional_id in professional_relationships_ids:
-        query=users.select().where(users.c.phone_number == professional_id)
+        query = users.select().where(users.c.phone_number == professional_id)
         query_result = await database.fetch_one(query)
         if not query_result:
             raise HTTPException(status_code=305, detail="The contact could not be found")
         decodedProfessionalParameters = jsonpickle.decode(query_result.professional_parameters)
         decodedPersonalParameters = jsonpickle.decode(query_result.personal_parameters)
         newResponse = {
-                "first_name": query_result.first_name,
-                "last_name": query_result.last_name,
-                "phone_number": query_result.phone_number,
-                "email_address": query_result.email_address,
-                "location": query_result.location,
-                "instagram_handle": query_result.instagram_handle,
-                "personal_parameters": None,
-                "professional_parameters": decodedProfessionalParameters,
-            }
+            "first_name": query_result.first_name,
+            "last_name": query_result.last_name,
+            "phone_number": query_result.phone_number,
+            "email_address": query_result.email_address,
+            "location": query_result.location,
+            "instagram_handle": query_result.instagram_handle,
+            "personal_parameters": None,
+            "professional_parameters": decodedProfessionalParameters,
+        }
         professional_contacts.append(newResponse)
     return professional_contacts
+
 
 @app.get("/fetch/{user_id}", response_model=List[UserComplete], status_code=status.HTTP_200_OK)
 async def fetch_contacts(user_id: str):
@@ -524,6 +528,13 @@ async def remove_user(user_id: int):
     query = users.delete().where(users.c.phone_number == user_id)
     await database.execute(query)
     return {"message": "User with id: {} deleted successfully!".format(user_id)}
+
+
+@app.delete("/relationships/{relationship_id}/delete", status_code=status.HTTP_200_OK)
+async def remove_relationship(relationship_id: int):
+    query = relationships.delete().where(relationships.c.relationship_id == relationship_id)
+    await database.execute(query)
+    return {"message:""Relationship with id: {} deleted successfully!".format(relationship_id)}
 
 # @app.put("/users/{user_id}/", response_model=User, status_code=status.HTTP_200_OK)
 # async def update_user(user_id: int, payload: User):
