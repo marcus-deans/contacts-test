@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 import os
 import urllib
 
-DATABASE_URL = "sqlite:///./test.db"
+#DATABASE_URL = "sqlite:///./test.db"
 
 # host_server = os.environ.get('host_server', 'localhost')
 # db_server_port = urllib.parse.quote_plus(str(os.environ.get('db_server_port', '5432')))
@@ -23,7 +23,7 @@ DATABASE_URL = "sqlite:///./test.db"
 # db_password = urllib.parse.quote_plus(str(os.environ.get('db_password', 'secret')))
 # ssl_mode = urllib.parse.quote_plus(str(os.environ.get('ssl_mode','require')))
 # DATABASE_URL = 'postgresql://{}:{}@{}:{}/{}?sslmode={}'.format(db_username, db_password, host_server, db_server_port, database_name, ssl_mode)
-# DATABASE_URL = "postgresql://bntliqohchcrzk:ee8f7b47350fa6d25f66d75be5c186636edd9a5fa0d4ee32d43aaff13b75ed59@ec2-52-22-136-117.compute-1.amazonaws.com:5432/d2e1q9sqmd67oj"
+DATABASE_URL = "postgresql://tyhogopgeybpov:b1bfaf71b3aaa3c7db86ce5eb4630b6393ee82a39f25f22fdd23baa2a4cd1225@ec2-34-200-35-222.compute-1.amazonaws.com:5432/dfac6s87cm7bgo"
 
 database = databases.Database(DATABASE_URL)
 
@@ -435,23 +435,6 @@ async def fetch_group(user_id: int, group_id: int):
         }
         responses.append(newResponse)
     return responses
-    # return await database.fetch_all(query)
-
-    # query_result = await database.fetch_one(query)
-    # decodedProfessionalParameters = jsonpickle.decode(
-    #     query_result.professional_parameters) if query_result is not None else None
-    # if query_result is None:
-    #     raise HTTPException(status_code=305, detail="User is not in our database")
-    # # query_result.personal_parameters = decodedPersonalParameters
-    # return {
-    #     "first_name": query_result.first_name,
-    #     "last_name": query_result.last_name,
-    #     "phone_number": query_result.phone_number,
-    #     "email_address": query_result.email_address,
-    #     "location": query_result.location,
-    #     "instagram_handle": query_result.instagram_handle,
-    #     "professional_parameters": decodedProfessionalParameters,
-    # }
 
 
 @app.delete("/users/{user_id}/delete", status_code=status.HTTP_200_OK)
