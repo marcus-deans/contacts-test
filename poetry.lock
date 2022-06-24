@@ -237,7 +237,6 @@ python-versions = ">=3.6"
 
 [package.dependencies]
 anyio = ">=3.4.0,<5"
-typing-extensions = {version = ">=3.10.0", markers = "python_version < \"3.10\""}
 
 [package.extras]
 full = ["itsdangerous", "jinja2", "python-multipart", "pyyaml", "requests"]
@@ -268,8 +267,8 @@ standard = ["websockets (>=10.0)", "httptools (>=0.4.0)", "watchgod (>=0.6)", "p
 
 [metadata]
 lock-version = "1.1"
-python-versions = "^3.9"
-content-hash = "bfbd70441399cf59f3c271e14267b2bdffe8ec2657f5fd360d7173792cba13d2"
+python-versions = "^3.10"
+content-hash = "9d312de86f98d36d9694976238b675e8b80fc45bc309664ecbca73da255e4d62"
 
 [metadata.files]
 aiosqlite = [
