@@ -134,16 +134,15 @@ class User(BaseModel):
 
 
 # # Model of JSON response for Update users collection
-# class UserUpdate(BaseModel):
-#     id: int
-#     first_name: Optional[str]
-#     last_name: Optional[str]
-#     phone_number: Optional[int]
-#     email_address: Optional[str]
-#     linkedin_url: Optional[str]
-#     instagram_url: Optional[str]
-#     professional_parameters: Optional[Json]
-#     professional_years: Optional[int]
+class UserComplete(BaseModel):
+    first_name: Optional[str]
+    last_name: Optional[str]
+    phone_number: Optional[str]
+    email_address: Optional[str]
+    location: Optional[str]
+    instagram_handle: Optional[str]
+    personal_parameters: PersonalParameters | None = None
+    professional_parameters: ProfessionalParameters | None = None
 
 
 # Model of JSON response for Retrieve personal information of contact
@@ -169,6 +168,13 @@ class UserProfessional(BaseModel):
     # personal_parameters: PersonalParameters | None = None
     personal_parameters: PersonalParameters | None
 
+class UserSimple(BaseModel):
+    first_name: Optional[str]
+    last_name: Optional[str]
+    phone_number: Optional[str]
+    email_address: Optional[str]
+    location: Optional[str]
+    instagram_handle: Optional[str]
 
 # class Group(BaseModel):
 #     id: int
@@ -406,10 +412,46 @@ async def create_group(user_id: str, group_id: str):
     return {"group_id": group_id, "user_id": user_id}
 
 
-@app.get("/users/{user_id}/read-group/{group_id}", response_model=List[User], status_code=status.HTTP_200_OK)
+@app.get("/users/{user_id}/read-group/{group_id}", response_model=List[UserComplete], status_code=status.HTTP_200_OK)
 async def fetch_group(user_id: int, group_id: int):
     query = users.select().where(users.c.group_id == group_id)
-    return await database.fetch_all(query)
+    query_result = await database.fetch_all(query)
+    if not query_result:
+        raise HTTPException(status_code=305, detail="The group does not exist")
+    # return query_result
+    responses = []
+    for query_resultant in query_result:
+        decodedProfessionalParameters = jsonpickle.decode(query_resultant.professional_parameters)
+        decodedPersonalParameters = jsonpickle.decode(query_resultant.personal_parameters)
+        newResponse = {
+            "first_name": query_resultant.first_name,
+            "last_name": query_resultant.last_name,
+            "phone_number": query_resultant.phone_number,
+            "email_address": query_resultant.email_address,
+            "location": query_resultant.location,
+            "instagram_handle": query_resultant.instagram_handle,
+            "professional_parameters": decodedProfessionalParameters,
+            "personal_parameters": decodedPersonalParameters,
+        }
+        responses.append(newResponse)
+    return responses
+    # return await database.fetch_all(query)
+
+    # query_result = await database.fetch_one(query)
+    # decodedProfessionalParameters = jsonpickle.decode(
+    #     query_result.professional_parameters) if query_result is not None else None
+    # if query_result is None:
+    #     raise HTTPException(status_code=305, detail="User is not in our database")
+    # # query_result.personal_parameters = decodedPersonalParameters
+    # return {
+    #     "first_name": query_result.first_name,
+    #     "last_name": query_result.last_name,
+    #     "phone_number": query_result.phone_number,
+    #     "email_address": query_result.email_address,
+    #     "location": query_result.location,
+    #     "instagram_handle": query_result.instagram_handle,
+    #     "professional_parameters": decodedProfessionalParameters,
+    # }
 
 
 @app.delete("/users/{user_id}/delete", status_code=status.HTTP_200_OK)
