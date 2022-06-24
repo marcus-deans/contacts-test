@@ -9,7 +9,7 @@ from fastapi import FastAPI, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Json
-from sqlalchemy import Integer
+from sqlalchemy import Integer, or_, and_
 from sqlalchemy.dialects.postgresql import JSONB
 import os
 import urllib
@@ -225,8 +225,20 @@ async def create_user(user: User):
 
 @app.get("/fetch/{user_id}", response_model=List[User], status_code=status.HTTP_200_OK)
 async def fetch_contacts(user_id: str):
-    relatedRelationships = relationships.select().where(relationships.c.initiator_id == user_id )
-    return await database.fetch_all(query)
+    personal_related_relationships_query = relationships.select().where(and_(or_(relationships.c.initiator_id == user_id,relationships.c.receiver_id == user_id),(relationships.c.isPersonal == True)))
+    personal_related_relationships = await database.fetch_all(personal_related_relationships_query)
+    professional_related_relationships_query = relationships.select().where(and_(or_(relationships.c.initiator_id == user_id,relationships.c.receiver_id == user_id),(relationships.c.isPersonal == False)))
+    professional_related_relationships = await database.fetch_all(professional_related_relationships_query)
+    contacts=List[User]
+    for personal_relationship in personal_related_relationships:
+        personal_contact_details_query = users.select().where(users.c.phone_number == personal_relationship[3])
+        personal_contact_details = await database.fetch_one(personal_contact_details_query)
+        contacts.append(personal_contact_details)
+    for professional_relationship in professional_related_relationships:
+        professional_contact_details_query = users.select().where(users.c.phone_number == professional_relationship[3])
+        professional_contact_details = await database.fetch_one(professional_contact_details_query)
+        contacts.append(professional_contact_details)
+    return contacts
 
 # CREATE PERSONAL RELATIONSHIPS
 @app.post("/relationships/{user_id}/personal/{contact_phone_number}", response_model=Relationship,
