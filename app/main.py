@@ -35,38 +35,38 @@ users = sqlalchemy.Table(
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
     sqlalchemy.Column("first_name", sqlalchemy.String),
     sqlalchemy.Column("last_name", sqlalchemy.String),
-    #PHONE NUMBER IS SUPPOSED TO BE A STRING!!
+    # PHONE NUMBER IS SUPPOSED TO BE A STRING!!
     sqlalchemy.Column("phone_number", sqlalchemy.String, unique=True),
     sqlalchemy.Column("email_address", sqlalchemy.String),
-    #sqlalchemy.Column("linkedin_url", sqlalchemy.String),
+    # sqlalchemy.Column("linkedin_url", sqlalchemy.String),
+    sqlalchemy.Column("location", sqlalchemy.String),
     sqlalchemy.Column("instagram_handle", sqlalchemy.String),
     sqlalchemy.Column("professional_parameters", sqlalchemy.dialects.postgresql.JSON),
     sqlalchemy.Column("personal_parameters", sqlalchemy.dialects.postgresql.JSON),
-    #sqlalchemy.Column("professional_years", sqlalchemy.Integer),
+    # sqlalchemy.Column("professional_years", sqlalchemy.Integer),
 )
 
 relationships = sqlalchemy.Table(
     "relationships",
     metadata,
-    sqlalchemy.Column("relationship_id", sqlalchemy.Integer, primary_key=True),
-    sqlalchemy.Column("initiator_id", sqlalchemy.Integer),
-    sqlalchemy.Column("receiver_id", sqlalchemy.Integer),
-    #PHONE NUMBER IS SUPPOSED TO BE A STRING!!
+    sqlalchemy.Column("relationship_id", sqlalchemy.Integer, primary_key=True, unique=True),
+    sqlalchemy.Column("initiator_id", sqlalchemy.String),
+    sqlalchemy.Column("receiver_id", sqlalchemy.String),
+    # PHONE NUMBER IS SUPPOSED TO BE A STRING!!
     sqlalchemy.Column("isPersonal", sqlalchemy.Boolean)
 )
 
 groups = sqlalchemy.Table(
     "groups",
     metadata,
-    sqlalchemy.Column("group_id", sqlalchemy.Integer, primary_key=True),
-    sqlalchemy.Column("member1", sqlalchemy.Integer),
-    sqlalchemy.Column("member2", sqlalchemy.Integer),
-    #PHONE NUMBER IS SUPPOSED TO BE A STRING!!
-    sqlalchemy.Column("member3", sqlalchemy.Integer),
-    sqlalchemy.Column("member4", sqlalchemy.Integer),
-    sqlalchemy.Column("member5", sqlalchemy.Integer)
+    sqlalchemy.Column("group_id", sqlalchemy.Integer, primary_key=True, unique=True),
+    sqlalchemy.Column("member1", sqlalchemy.String),
+    sqlalchemy.Column("member2", sqlalchemy.String),
+    # PHONE NUMBER IS SUPPOSED TO BE A STRING!!
+    sqlalchemy.Column("member3", sqlalchemy.String),
+    sqlalchemy.Column("member4", sqlalchemy.String),
+    sqlalchemy.Column("member5", sqlalchemy.String)
 )
-
 
 # groups = sqlalchemy.Table(
 #     "groups",
@@ -88,6 +88,7 @@ engine = sqlalchemy.create_engine(
 )
 metadata.create_all(engine)
 
+
 # Professional parameters used in both creation, updates, etc.
 class ProfessionalParameters(BaseModel):
     machine_learning: Optional[bool]
@@ -99,6 +100,7 @@ class ProfessionalParameters(BaseModel):
     consulting: Optional[bool]
     startup: Optional[bool]
 
+
 # Personal parameter used in creation, updates, etc.
 class PersonalParameters(BaseModel):
     soccer: Optional[bool]
@@ -107,7 +109,7 @@ class PersonalParameters(BaseModel):
     musician: Optional[bool]
     music_listener: Optional[bool]
     foodie: Optional[bool]
-    #fashion: Optional[bool]
+    # fashion: Optional[bool]
     gamer: Optional[bool]
     pets: Optional[bool]
 
@@ -135,7 +137,7 @@ class User(BaseModel):
     location: Optional[str]
     instagram_handle: Optional[str]
     personal_parameters: PersonalParameters | None = None
-    professional_parameters: ProfessionalParameters |  None = None
+    professional_parameters: ProfessionalParameters | None = None
 
 
 # # Model of JSON response for Update users collection
@@ -160,23 +162,27 @@ class UserPersonal(User):
 # Model of JSON response for Retrieve professional information of contact
 class UserProfessional(User):
     linkedin_url: str
-    #professional_years: int
-    #professional_parameters: ProfessionalParameters | None
+    # professional_years: int
+    # professional_parameters: ProfessionalParameters | None
+
 
 # class Group(BaseModel):
 #     id: int
 #     contact_ids: List[int]
 
 class Group(BaseModel):
-    group_id: Optional[str]
+    # group_id: Optional[str]
+    group_id: int
     member1: Optional[str]
     member2: Optional[str]
     member3: Optional[str]
     member4: Optional[str]
     member5: Optional[str]
 
+
 class Relationship(BaseModel):
-    relationship_id: Optional[str]
+    # relationship_id: Optional[str]
+    relationship_id: int
     initiator_id: Optional[str]
     receiver_id: Optional[str]
     isPersonal: Optional[bool]
@@ -212,124 +218,63 @@ async def create_user(user: User):
         last_name=user.last_name,
         phone_number=user.phone_number,
         email_address=user.email_address,
-        #linkedin_url=user.linkedin_url,
+        location=user.location,
+        # linkedin_url=user.linkedin_url,
         instagram_handle=user.instagram_handle,
         professional_parameters=jsonpickle.encode(user.professional_parameters),
         personal_parameters=jsonpickle.encode(user.personal_parameters),
-        #professional_years=user.professional_years,
+        # professional_years=user.professional_years,
     )
     print(query)
     last_record_id = await database.execute(query)
     return {**user.dict(), "id": last_record_id}
 
 
-@app.put("/users/{user_id}/", response_model=User, status_code=status.HTTP_200_OK)
-async def update_user(user_id: int, payload: User):
-    query = users.update().where(users.c.id == user_id).values(
-        first_name=payload.first_name,
-        last_name=payload.last_name,
-        phone_number=payload.phone_number,
-        email_address=payload.email_address,
-        #linkedin_url=payload.linkedin_url,
-        instagram_handle=payload.instagram_handle,
-        professional_parameters=payload.professional_parameters,
-        #professional_years=payload.professional_years,
-    )
-    await database.execute(query)
-    return {**payload.dict(), "id": user_id}
 
 
-@app.get("/users/{contact_phone_number}/personal", response_model=UserPersonal, status_code=status.HTTP_200_OK)
-async def read_personal_user(contact_phone_number: str):
-    query = users.select().where(users.c.phone_number == contact_phone_number)
-    return await database.fetch_one(query)
 
-
-@app.get("/users/{contact_phone_number}/professional", response_model=UserProfessional, status_code=status.HTTP_200_OK)
-async def read_professional_user(contact_phone_number: str):
-    query = users.select().where(users.c.phone_number == contact_phone_number)
-    query_result = await database.fetch_one(query)
-    return query_result
-
-@app.get("/users/{contact_phone_number}/professional-parameters", response_model = ProfessionalParameters, status_code=status.HTTP_200_OK)
-async def read_professional_parameters(contact_phone_number:str):
-    query = users.select().where(users.c.phone_number == contact_phone_number)
-    query_result = await database.fetch_one(query)
-    return jsonpickle.decode(query_result.professional_parameters) if query_result is not None else None
-
-@app.get("/users/{contact_phone_number}/personal-parameters", response_model = PersonalParameters, status_code=status.HTTP_200_OK)
-async def read_personal_parameters(contact_phone_number:str):
-    query = users.select().where(users.c.phone_number == contact_phone_number)
-    query_result = await database.fetch_one(query)
-    return jsonpickle.decode(query_result.personal_parameters) if query_result is not None else None
-
-@app.post("/users/{user_id}/add-group/{group_id}", status_code=status.HTTP_200_OK)
-async def add_user_to_group(user_id:int, group_id:int):
-    # query = groups.insert().values(group_id=group_id, users_id=)
-    # last_record_id = await database.execute(query)
-    # return {**groups.dict(), "id": last_record_id}
-    # groups.update().where(groups.c.group_id==group_id).values(groups.c.users_id=text(f'array_append({groups.c.users_id.name},{user_id}'))
-    return 200
-
-@app.get("/users/{user_id}/read-group/{group_id}", status_code=status.HTTP_102_PROCESSING)
-async def read_contacts_from_group(user_id:int, group_id:int):
-    return 202
-
-
-@app.get("/users/", response_model=List[User], status_code=status.HTTP_200_OK)
-async def read_users(skip: int = 0, take: int = 20):
-    query = users.select().offset(skip).limit(take)
-    return await database.fetch_all(query)
-
-
-@app.get("/users/{user_id}/", response_model=User, status_code=status.HTTP_200_OK)
-async def read_users(user_id: int):
-    query = users.select().where(users.c.id == user_id)
-    return await database.fetch_one(query)
-
-
-@app.delete("/users/{user_id}/", status_code=status.HTTP_200_OK)
-async def remove_user(user_id: int):
-    query = users.delete().where(users.c.id == user_id)
-    await database.execute(query)
-    return {"message": "User with id: {} deleted successfully!".format(user_id)}
-
-#CREATE PERSONAL RELATIONSHIPS
-@app.post("/relationships/{user_id}/personal/{contact_phone_number}", response_model=Relationship, status_code=status.HTTP_200_OK)
+# CREATE PERSONAL RELATIONSHIPS
+@app.post("/relationships/{user_id}/personal/{contact_phone_number}", response_model=Relationship,
+          status_code=status.HTTP_200_OK)
 async def create_personal_relationships(initiator_id: str, receiver_id: str):
     query = relationships.insert().values(
-        #CHANGE THE RELATIONSHIP ID
-        relationship_id="",
+        # TODO: CHANGE THE RELATIONSHIP ID - prithvi; don't think we need it - marcus
+        # relationship_id="",
         initiator_id=initiator_id,
         receiver_id=receiver_id,
         isPersonal=True
     )
     print(query)
     last_record_id = await database.execute(query)
-    #Check the return statement
+    # TODO: Check the return statement; not necessary, returning ID should be sufficient
     return {**initiator_id.dict(), "id": last_record_id}
 
-#CREATE PROFESSIONAL RELATIONSHIPS
-@app.post("/relationships/{user_id}/professional/{contact_phone_number}", response_model=Relationship, status_code=status.HTTP_200_OK)
+
+# CREATE PROFESSIONAL RELATIONSHIPS
+@app.post("/relationships/{user_id}/professional/{contact_phone_number}", response_model=Relationship,
+          status_code=status.HTTP_200_OK)
 async def create_professional_relationships(initiator_id: str, receiver_id: str):
     query = relationships.insert().values(
-        #CHANGE THE RELATIONSHIP ID
-        relationship_id="",
+        # TODO: CHANGE THE RELATIONSHIP ID - prithvi; don't think we need it - marcus
+        # relationship_id="",
         initiator_id=initiator_id,
         receiver_id=receiver_id,
         isPersonal=False
     )
     print(query)
     last_record_id = await database.execute(query)
-    #Check the return statement
+    # TODO: Check the return statement; not necessary, returning ID should be sufficient
     return {**initiator_id.dict(), "id": last_record_id}
 
-#CREATE GROUP
+
+# CREATE GROUP
 @app.post("/groups/{user_id}/create/{group_id}", response_model=Group, status_code=status.HTTP_200_OK)
-async def create_professional_relationships(group_id: str, member1: str,  member2: str,  member3: str,  member4: str,  member5: str):
+async def create_group(group_id: str, member1: str, member2: str, member3: str, member4: str,
+                                            member5: str):
+    query = groups.select().where(groups.c.group_id == group_id)
     query = relationships.insert().values(
-        #CHANGE THE GROUP ID
-        group_id = group_id,
+        # TODO: CHANGE THE GROUP ID - prithvi; don't think we need it - Marcus
+        # group_id=group_id,
         member1=member1,
         member2=member2,
         member3=member3,
@@ -338,5 +283,83 @@ async def create_professional_relationships(group_id: str, member1: str,  member
     )
     print(query)
     last_record_id = await database.execute(query)
-    #Check the return statement
+    #TODO: Check the return statement; probably not necesary either
     return {**group_id.dict(), "id": last_record_id}
+
+
+# @app.put("/users/{user_id}/", response_model=User, status_code=status.HTTP_200_OK)
+# async def update_user(user_id: int, payload: User):
+#     query = users.update().where(users.c.id == user_id).values(
+#         first_name=payload.first_name,
+#         last_name=payload.last_name,
+#         phone_number=payload.phone_number,
+#         email_address=payload.email_address,
+#         # linkedin_url=payload.linkedin_url,
+#         instagram_handle=payload.instagram_handle,
+#         professional_parameters=payload.professional_parameters,
+#         # professional_years=payload.professional_years,
+#     )
+#     await database.execute(query)
+#     return {**payload.dict(), "id": user_id}
+
+
+# @app.get("/users/{contact_phone_number}/personal", response_model=UserPersonal, status_code=status.HTTP_200_OK)
+# async def read_personal_user(contact_phone_number: str):
+#     query = users.select().where(users.c.phone_number == contact_phone_number)
+#     return await database.fetch_one(query)
+#
+#
+# @app.get("/users/{contact_phone_number}/professional", response_model=UserProfessional, status_code=status.HTTP_200_OK)
+# async def read_professional_user(contact_phone_number: str):
+#     query = users.select().where(users.c.phone_number == contact_phone_number)
+#     query_result = await database.fetch_one(query)
+#     return query_result
+#
+#
+# @app.get("/users/{contact_phone_number}/professional-parameters", response_model=ProfessionalParameters,
+#          status_code=status.HTTP_200_OK)
+# async def read_professional_parameters(contact_phone_number: str):
+#     query = users.select().where(users.c.phone_number == contact_phone_number)
+#     query_result = await database.fetch_one(query)
+#     return jsonpickle.decode(query_result.professional_parameters) if query_result is not None else None
+#
+#
+# @app.get("/users/{contact_phone_number}/personal-parameters", response_model=PersonalParameters,
+#          status_code=status.HTTP_200_OK)
+# async def read_personal_parameters(contact_phone_number: str):
+#     query = users.select().where(users.c.phone_number == contact_phone_number)
+#     query_result = await database.fetch_one(query)
+#     return jsonpickle.decode(query_result.personal_parameters) if query_result is not None else None
+#
+#
+# @app.post("/users/{user_id}/add-group/{group_id}", status_code=status.HTTP_200_OK)
+# async def add_user_to_group(user_id: int, group_id: int):
+#     # query = groups.insert().values(group_id=group_id, users_id=)
+#     # last_record_id = await database.execute(query)
+#     # return {**groups.dict(), "id": last_record_id}
+#     # groups.update().where(groups.c.group_id==group_id).values(groups.c.users_id=text(f'array_append({groups.c.users_id.name},{user_id}'))
+#     return 200
+#
+#
+# @app.get("/users/{user_id}/read-group/{group_id}", status_code=status.HTTP_102_PROCESSING)
+# async def read_contacts_from_group(user_id: int, group_id: int):
+#     return 202
+#
+#
+# @app.get("/users/", response_model=List[User], status_code=status.HTTP_200_OK)
+# async def read_users(skip: int = 0, take: int = 20):
+#     query = users.select().offset(skip).limit(take)
+#     return await database.fetch_all(query)
+#
+#
+# @app.get("/users/{user_id}/", response_model=User, status_code=status.HTTP_200_OK)
+# async def read_users(user_id: int):
+#     query = users.select().where(users.c.id == user_id)
+#     return await database.fetch_one(query)
+#
+#
+# @app.delete("/users/{user_id}/", status_code=status.HTTP_200_OK)
+# async def remove_user(user_id: int):
+#     query = users.delete().where(users.c.id == user_id)
+#     await database.execute(query)
+#     return {"message": "User with id: {} deleted successfully!".format(user_id)}
