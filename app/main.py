@@ -23,7 +23,7 @@ import urllib
 # db_password = urllib.parse.quote_plus(str(os.environ.get('db_password', 'secret')))
 # ssl_mode = urllib.parse.quote_plus(str(os.environ.get('ssl_mode','require')))
 # DATABASE_URL = 'postgresql://{}:{}@{}:{}/{}?sslmode={}'.format(db_username, db_password, host_server, db_server_port, database_name, ssl_mode)
-DATABASE_URL = "postgresql://tyhogopgeybpov:b1bfaf71b3aaa3c7db86ce5eb4630b6393ee82a39f25f22fdd23baa2a4cd1225@ec2-34-200-35-222.compute-1.amazonaws.com:5432/dfac6s87cm7bgo"
+DATABASE_URL = "postgresql://hkmbwqvzdbxgcf:bc137e87599a87f0a4d9564e44d20ee0c0bc5b69ab2fb18aed3f1953fea17d82@ec2-54-160-109-68.compute-1.amazonaws.com:5432/d7utfd0aag404r"
 
 database = databases.Database(DATABASE_URL)
 
