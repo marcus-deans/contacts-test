@@ -43,6 +43,7 @@ users = sqlalchemy.Table(
     sqlalchemy.Column("instagram_handle", sqlalchemy.String),
     sqlalchemy.Column("professional_parameters", sqlalchemy.dialects.postgresql.JSON),
     sqlalchemy.Column("personal_parameters", sqlalchemy.dialects.postgresql.JSON),
+    sqlalchemy.Column("group_id", sqlalchemy.String),
     # sqlalchemy.Column("professional_years", sqlalchemy.Integer),
 )
 
@@ -56,25 +57,18 @@ relationships = sqlalchemy.Table(
     sqlalchemy.Column("isPersonal", sqlalchemy.Boolean)
 )
 
-groups = sqlalchemy.Table(
-    "groups",
-    metadata,
-    sqlalchemy.Column("group_id", sqlalchemy.Integer, primary_key=True, unique=True),
-    sqlalchemy.Column("member1", sqlalchemy.String),
-    sqlalchemy.Column("member2", sqlalchemy.String),
-    # PHONE NUMBER IS SUPPOSED TO BE A STRING!!
-    sqlalchemy.Column("member3", sqlalchemy.String),
-    sqlalchemy.Column("member4", sqlalchemy.String),
-    sqlalchemy.Column("member5", sqlalchemy.String)
-)
-
 # groups = sqlalchemy.Table(
 #     "groups",
 #     metadata,
-#     sqlalchemy.Column("group_id", sqlalchemy.Integer, primary_key=True),
-#     #TODO: explore one to many mapping
-#     sqlalchemy.Column("users_id", sqlalchemy.types.ARRAY(Integer)),
+#     sqlalchemy.Column("group_id", sqlalchemy.Integer, primary_key=True, unique=True),
+#     sqlalchemy.Column("member1", sqlalchemy.String),
+#     sqlalchemy.Column("member2", sqlalchemy.String),
+#     # PHONE NUMBER IS SUPPOSED TO BE A STRING!!
+#     sqlalchemy.Column("member3", sqlalchemy.String),
+#     sqlalchemy.Column("member4", sqlalchemy.String),
+#     sqlalchemy.Column("member5", sqlalchemy.String)
 # )
+
 
 # engine = sqlalchemy.create_engine(
 #     DATABASE_URL, connect_args={"check_same_thread": False}
@@ -170,14 +164,14 @@ class UserProfessional(User):
 #     id: int
 #     contact_ids: List[int]
 
-class Group(BaseModel):
-    # group_id: Optional[str]
-    group_id: int
-    member1: Optional[str]
-    member2: Optional[str]
-    member3: Optional[str]
-    member4: Optional[str]
-    member5: Optional[str]
+# class Group(BaseModel):
+#     # group_id: Optional[str]
+#     group_id: int
+#     member1: Optional[str]
+#     member2: Optional[str]
+#     member3: Optional[str]
+#     member4: Optional[str]
+#     member5: Optional[str]
 
 
 class Relationship(BaseModel):
@@ -229,63 +223,80 @@ async def create_user(user: User):
     last_record_id = await database.execute(query)
     return {**user.dict(), "id": last_record_id}
 
-
-
-
+@app.get("/fetch/{user_id}", response_model=List[User], status_code=status.HTTP_200_OK)
+async def fetch_contacts(user_id: str):
+    relatedRelationships = relationships.select().where(relationships.c.initiator_id == user_id )
+    return await database.fetch_all(query)
 
 # CREATE PERSONAL RELATIONSHIPS
 @app.post("/relationships/{user_id}/personal/{contact_phone_number}", response_model=Relationship,
           status_code=status.HTTP_200_OK)
-async def create_personal_relationships(initiator_id: str, receiver_id: str):
+async def create_personal_relationships(user_id: str, contact_phone_number: str):
     query = relationships.insert().values(
         # TODO: CHANGE THE RELATIONSHIP ID - prithvi; don't think we need it - marcus
         # relationship_id="",
-        initiator_id=initiator_id,
-        receiver_id=receiver_id,
+        initiator_id=user_id,
+        receiver_id=contact_phone_number,
         isPersonal=True
     )
     print(query)
     last_record_id = await database.execute(query)
     # TODO: Check the return statement; not necessary, returning ID should be sufficient
-    return {**initiator_id.dict(), "id": last_record_id}
+    # return {**initiator_id.dict(), "id": last_record_id}
+    return {"relationship_id": last_record_id, "initiator_id": user_id, "receiver_id": contact_phone_number,
+            "isPersonal": True}
 
 
 # CREATE PROFESSIONAL RELATIONSHIPS
 @app.post("/relationships/{user_id}/professional/{contact_phone_number}", response_model=Relationship,
           status_code=status.HTTP_200_OK)
-async def create_professional_relationships(initiator_id: str, receiver_id: str):
+async def create_professional_relationships(user_id: str, contact_phone_number: str):
     query = relationships.insert().values(
         # TODO: CHANGE THE RELATIONSHIP ID - prithvi; don't think we need it - marcus
         # relationship_id="",
-        initiator_id=initiator_id,
-        receiver_id=receiver_id,
+        initiator_id=user_id,
+        receiver_id=contact_phone_number,
         isPersonal=False
     )
     print(query)
     last_record_id = await database.execute(query)
     # TODO: Check the return statement; not necessary, returning ID should be sufficient
-    return {**initiator_id.dict(), "id": last_record_id}
+    # return {**initiator_id.dict(), "id": last_record_id}
+    return {"relationship_id": last_record_id, "initiator_id": user_id, "receiver_id": contact_phone_number,
+            "isPersonal": False}
 
 
 # CREATE GROUP
 @app.post("/groups/{user_id}/create/{group_id}", response_model=Group, status_code=status.HTTP_200_OK)
-async def create_group(group_id: str, member1: str, member2: str, member3: str, member4: str,
-                                            member5: str):
-    query = groups.select().where(groups.c.group_id == group_id)
-    query = relationships.insert().values(
-        # TODO: CHANGE THE GROUP ID - prithvi; don't think we need it - Marcus
-        # group_id=group_id,
-        member1=member1,
-        member2=member2,
-        member3=member3,
-        member4=member4,
-        member5=member5
-    )
+async def create_group(user_id: str, group_id: str):
+    # query = relationships.insert().values(
+    #     # TODO: CHANGE THE GROUP ID - prithvi; don't think we need it - Marcus
+    #     # group_id=group_id,
+    #     member1=member1,
+    #     member2=member2,
+    #     member3=member3,
+    #     member4=member4,
+    #     member5=member5
+    # )
+    query = users.update().where(users.c.id == user_id).values(group_id=group_id)
     print(query)
     last_record_id = await database.execute(query)
-    #TODO: Check the return statement; probably not necesary either
-    return {**group_id.dict(), "id": last_record_id}
+    # TODO: Check the return statement; probably not necesary either
+    # return {**group_id.dict(), "id": last_record_id}
+    return {"group_id": group_id, "user_id": user_id}
 
+
+@app.get("/users/{user_id}/read-group/{group_id}", response_model=List[User], status_code=status.HTTP_102_PROCESSING)
+async def fetch_group(user_id: int, group_id: int):
+    query = users.select().where(users.c.group_id == group_id)
+    return await database.fetch_all(query)
+
+
+@app.delete("/users/{user_id}/delete", status_code=status.HTTP_200_OK)
+async def remove_user(user_id: int):
+    query = users.delete().where(users.c.phone_number == user_id)
+    await database.execute(query)
+    return {"message": "User with id: {} deleted successfully!".format(user_id)}
 
 # @app.put("/users/{user_id}/", response_model=User, status_code=status.HTTP_200_OK)
 # async def update_user(user_id: int, payload: User):
@@ -341,9 +352,7 @@ async def create_group(group_id: str, member1: str, member2: str, member3: str, 
 #     return 200
 #
 #
-# @app.get("/users/{user_id}/read-group/{group_id}", status_code=status.HTTP_102_PROCESSING)
-# async def read_contacts_from_group(user_id: int, group_id: int):
-#     return 202
+
 #
 #
 # @app.get("/users/", response_model=List[User], status_code=status.HTTP_200_OK)
@@ -352,14 +361,6 @@ async def create_group(group_id: str, member1: str, member2: str, member3: str, 
 #     return await database.fetch_all(query)
 #
 #
-# @app.get("/users/{user_id}/", response_model=User, status_code=status.HTTP_200_OK)
-# async def read_users(user_id: int):
-#     query = users.select().where(users.c.id == user_id)
-#     return await database.fetch_one(query)
+
 #
 #
-# @app.delete("/users/{user_id}/", status_code=status.HTTP_200_OK)
-# async def remove_user(user_id: int):
-#     query = users.delete().where(users.c.id == user_id)
-#     await database.execute(query)
-#     return {"message": "User with id: {} deleted successfully!".format(user_id)}
