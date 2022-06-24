@@ -240,6 +240,7 @@ async def create_user(user: UserCreate):
         raise HTTPException(status_code=422, detail="User already in database")
     return {**user.dict(), "id": last_record_id}
 
+
 # @app.get("/fetch/personal/{user_id}", response_model=List[UserPersonal], status_code=status.HTTP_200_OK)
 # async def fetch_personal_contacts
 
@@ -248,38 +249,74 @@ async def create_user(user: UserCreate):
 async def test_fetch_personal_contact(contact_phone_number: str):
     query = users.select().where(users.c.phone_number == contact_phone_number)
     query_result = await database.fetch_one(query)
-    decodedPersonalParameters = jsonpickle.decode(query_result.personal_parameters) if query_result is not None else None
+    decodedPersonalParameters = jsonpickle.decode(
+        query_result.personal_parameters) if query_result is not None else None
     if query_result is None:
         raise HTTPException(status_code=305, detail="User is not in our database")
     # query_result.personal_parameters = decodedPersonalParameters
     return {
-        "first_name":query_result.first_name,
-        "last_name":query_result.last_name,
-        "phone_number":query_result.phone_number,
-        "email_address":query_result.email_address,
-        "location":query_result.location,
-        "instagram_handle":query_result.instagram_handle,
-        "personal_parameters":decodedPersonalParameters,
+        "first_name": query_result.first_name,
+        "last_name": query_result.last_name,
+        "phone_number": query_result.phone_number,
+        "email_address": query_result.email_address,
+        "location": query_result.location,
+        "instagram_handle": query_result.instagram_handle,
+        "personal_parameters": decodedPersonalParameters,
     }
 
-@app.get("/testing/users/{contact_phone_number}/professional", response_model=UserProfessional, status_code=status.HTTP_200_OK)
+
+@app.get("/testing/users/{contact_phone_number}/professional", response_model=UserProfessional,
+         status_code=status.HTTP_200_OK)
 async def test_fetch_professional_contact(contact_phone_number: str):
     query = users.select().where(users.c.phone_number == contact_phone_number)
     query_result = await database.fetch_one(query)
-    decodedProfessionalParameters = jsonpickle.decode(query_result.professional_parameters) if query_result is not None else None
+    decodedProfessionalParameters = jsonpickle.decode(
+        query_result.professional_parameters) if query_result is not None else None
     if query_result is None:
         raise HTTPException(status_code=305, detail="User is not in our database")
     # query_result.personal_parameters = decodedPersonalParameters
     return {
-        "first_name":query_result.first_name,
-        "last_name":query_result.last_name,
-        "phone_number":query_result.phone_number,
-        "email_address":query_result.email_address,
-        "location":query_result.location,
-        "instagram_handle":query_result.instagram_handle,
-        "professional_parameters":decodedProfessionalParameters,
+        "first_name": query_result.first_name,
+        "last_name": query_result.last_name,
+        "phone_number": query_result.phone_number,
+        "email_address": query_result.email_address,
+        "location": query_result.location,
+        "instagram_handle": query_result.instagram_handle,
+        "professional_parameters": decodedProfessionalParameters,
     }
 
+@app.get("/testing/{user_id}/relationships/personal/", response_model=List[Relationship], status_code=status.HTTP_200_OK)
+async def test_fetch_personal_relationships(user_id:str):
+    query = relationships.select().where(
+        and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
+             (relationships.c.isPersonal == True)))
+    query_result = await database.fetch_all(query)
+    if query_result:
+        return query_result
+    else:
+        raise HTTPException(status_code=404, detail="No personal relationships exist")
+
+@app.get("/testing/{user_id}/relationships/personal/ids", response_model=List[str], status_code=status.HTTP_200_OK)
+async def test_fetch_personal_relationships_ids(user_id:str):
+    query = relationships.select().where(
+        and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
+             (relationships.c.isPersonal == True)))
+    query_result = await database.fetch_all(query)
+    if query_result:
+        return query_result
+    else:
+        raise HTTPException(status_code=404, detail="No personal relationships exist")
+
+@app.get("/testing/{user_id}/relationships/professional/", response_model=List[Relationship], status_code=status.HTTP_200_OK)
+async def test_fetch_professional_relationships(user_id:str):
+    query = relationships.select().where(
+        and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
+             (relationships.c.isPersonal == False)))
+    query_result = await database.fetch_all(query)
+    if query_result:
+        return query_result
+    else:
+        raise HTTPException(status_code=404, detail="No professional relationships exist")
 
 @app.get("/fetch/{user_id}", response_model=List[User], status_code=status.HTTP_200_OK)
 async def fetch_contacts(user_id: str):
