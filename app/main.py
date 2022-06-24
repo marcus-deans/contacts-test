@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 import os
 import urllib
 
-#DATABASE_URL = "sqlite:///./test.db"
+DATABASE_URL = "sqlite:///./test.db"
 
 # host_server = os.environ.get('host_server', 'localhost')
 # db_server_port = urllib.parse.quote_plus(str(os.environ.get('db_server_port', '5432')))
@@ -23,7 +23,7 @@ import urllib
 # db_password = urllib.parse.quote_plus(str(os.environ.get('db_password', 'secret')))
 # ssl_mode = urllib.parse.quote_plus(str(os.environ.get('ssl_mode','require')))
 # DATABASE_URL = 'postgresql://{}:{}@{}:{}/{}?sslmode={}'.format(db_username, db_password, host_server, db_server_port, database_name, ssl_mode)
-DATABASE_URL = "postgresql://tyhogopgeybpov:b1bfaf71b3aaa3c7db86ce5eb4630b6393ee82a39f25f22fdd23baa2a4cd1225@ec2-34-200-35-222.compute-1.amazonaws.com:5432/dfac6s87cm7bgo"
+# DATABASE_URL = "postgresql://tyhogopgeybpov:b1bfaf71b3aaa3c7db86ce5eb4630b6393ee82a39f25f22fdd23baa2a4cd1225@ec2-34-200-35-222.compute-1.amazonaws.com:5432/dfac6s87cm7bgo"
 
 database = databases.Database(DATABASE_URL)
 
@@ -166,7 +166,8 @@ class UserProfessional(BaseModel):
     location: Optional[str]
     instagram_handle: Optional[str]
     # personal_parameters: PersonalParameters | None = None
-    personal_parameters: PersonalParameters | None
+    professional_parameters: ProfessionalParameters | None
+
 
 class UserSimple(BaseModel):
     first_name: Optional[str]
@@ -175,6 +176,7 @@ class UserSimple(BaseModel):
     email_address: Optional[str]
     location: Optional[str]
     instagram_handle: Optional[str]
+
 
 # class Group(BaseModel):
 #     id: int
@@ -291,8 +293,10 @@ async def test_fetch_professional_contact(contact_phone_number: str):
         "professional_parameters": decodedProfessionalParameters,
     }
 
-@app.get("/testing/{user_id}/relationships/personal/", response_model=List[Relationship], status_code=status.HTTP_200_OK)
-async def test_fetch_personal_relationships(user_id:str):
+
+@app.get("/testing/{user_id}/relationships/personal/", response_model=List[Relationship],
+         status_code=status.HTTP_200_OK)
+async def test_fetch_personal_relationships(user_id: str):
     query = relationships.select().where(
         and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
              (relationships.c.isPersonal == True)))
@@ -301,20 +305,29 @@ async def test_fetch_personal_relationships(user_id:str):
         return query_result
     else:
         raise HTTPException(status_code=404, detail="No personal relationships exist")
+
 
 @app.get("/testing/{user_id}/relationships/personal/ids", response_model=List[str], status_code=status.HTTP_200_OK)
-async def test_fetch_personal_relationships_ids(user_id:str):
+async def test_fetch_personal_relationships_ids(user_id: str):
     query = relationships.select().where(
         and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
              (relationships.c.isPersonal == True)))
     query_result = await database.fetch_all(query)
-    if query_result:
-        return query_result
-    else:
+    if not query_result:
         raise HTTPException(status_code=404, detail="No personal relationships exist")
+    else:
+        personal_relationships_ids = []
+        for query_resultant in query_result:
+            if query_resultant.initiator_id != user_id:
+                personal_relationships_ids.append(query_resultant.initiator_id)
+            if query_resultant.receiver_id != user_id:
+                personal_relationships_ids.append(query_resultant.receiver_id)
+        return personal_relationships_ids
 
-@app.get("/testing/{user_id}/relationships/professional/", response_model=List[Relationship], status_code=status.HTTP_200_OK)
-async def test_fetch_professional_relationships(user_id:str):
+
+@app.get("/testing/{user_id}/relationships/professional/", response_model=List[Relationship],
+         status_code=status.HTTP_200_OK)
+async def test_fetch_professional_relationships(user_id: str):
     query = relationships.select().where(
         and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
              (relationships.c.isPersonal == False)))
@@ -324,27 +337,94 @@ async def test_fetch_professional_relationships(user_id:str):
     else:
         raise HTTPException(status_code=404, detail="No professional relationships exist")
 
-@app.get("/fetch/{user_id}", response_model=List[User], status_code=status.HTTP_200_OK)
-async def fetch_contacts(user_id: str):
-    personal_related_relationships_query = relationships.select().where(
+@app.get("/testing/{user_id}/relationships/professional/ids", response_model=List[str], status_code=status.HTTP_200_OK)
+async def test_fetch_professional_relationships_ids(user_id: str):
+    query = relationships.select().where(
         and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
-             (relationships.c.isPersonal == True)))
-    personal_related_relationships = await database.fetch_all(personal_related_relationships_query)
-    print("Personal Related Relationships Query")
-    print(personal_related_relationships_query)
+             (relationships.c.isPersonal == False)))
+    query_result = await database.fetch_all(query)
+    if not query_result:
+        raise HTTPException(status_code=404, detail="No professional relationships exist")
+    else:
+        professional_relationships_ids = []
+        for query_resultant in query_result:
+            if query_resultant.initiator_id != user_id:
+                professional_relationships_ids.append(query_resultant.initiator_id)
+            if query_resultant.receiver_id != user_id:
+                professional_relationships_ids.append(query_resultant.receiver_id)
+        return professional_relationships_ids
+
+
+@app.get("/fetch/{user_id}/personal", response_model=List[UserPersonal], status_code=status.HTTP_200_OK)
+async def fetch_contacts_personal(user_id: str):
+    personal_relationships_ids = await test_fetch_personal_relationships_ids(user_id)
+    personal_contacts = []
+    for personal_id in personal_relationships_ids:
+        query=users.select().where(users.c.phone_number == personal_id)
+        query_result = await database.fetch_one(query)
+        if not query_result:
+            raise HTTPException(status_code=305, detail="The contact could not be found")
+        decodedProfessionalParameters = jsonpickle.decode(query_result.professional_parameters)
+        decodedPersonalParameters = jsonpickle.decode(query_result.personal_parameters)
+        newResponse = {
+                "first_name": query_result.first_name,
+                "last_name": query_result.last_name,
+                "phone_number": query_result.phone_number,
+                "email_address": query_result.email_address,
+                "location": query_result.location,
+                "instagram_handle": query_result.instagram_handle,
+                "personal_parameters": decodedPersonalParameters,
+            }
+        personal_contacts.append(newResponse)
+    return personal_contacts
+
+@app.get("/fetch/{user_id}/professional", response_model=List[UserProfessional], status_code=status.HTTP_200_OK)
+async def fetch_contacts_professional(user_id: str):
+    professional_relationships_ids = await test_fetch_professional_relationships_ids(user_id)
+    professional_contacts = []
+    for professional_id in professional_relationships_ids:
+        query=users.select().where(users.c.phone_number == professional_id)
+        query_result = await database.fetch_one(query)
+        if not query_result:
+            raise HTTPException(status_code=305, detail="The contact could not be found")
+        decodedProfessionalParameters = jsonpickle.decode(query_result.professional_parameters)
+        decodedPersonalParameters = jsonpickle.decode(query_result.personal_parameters)
+        newResponse = {
+                "first_name": query_result.first_name,
+                "last_name": query_result.last_name,
+                "phone_number": query_result.phone_number,
+                "email_address": query_result.email_address,
+                "location": query_result.location,
+                "instagram_handle": query_result.instagram_handle,
+                "professional_parameters": decodedProfessionalParameters,
+            }
+        professional_contacts.append(newResponse)
+    return professional_contacts
+
+@app.get("/fetch/{user_id}", response_model=List[UserComplete], status_code=status.HTTP_200_OK)
+async def fetch_contacts(user_id: str):
+    personal_contacts = await fetch_contacts_personal(user_id)
+    professional_contacts = await fetch_contacts_professional(user_id)
+    return personal_contacts + professional_contacts
+    # personal_related_relationships_query = relationships.select().where(
+    #     and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
+    #          (relationships.c.isPersonal == True)))
+    # personal_related_relationships = await database.fetch_all(personal_related_relationships_query)
+    # print("Personal Related Relationships Query")
+    # print(personal_related_relationships_query)
     # professional_related_relationships_query = relationships.select().where(
     #     and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
     #          (relationships.c.isPersonal == False)))
     # professional_related_relationships = await database.fetch_all(professional_related_relationships_query)
     # print(professional_related_relationships_query)
-    contacts = List[User]
-    for personal_relationship in personal_related_relationships:
-        personal_contact_details_query = users.select().where(users.c.phone_number == personal_relationship[3])
-        print("Personal Contact Details Query")
-        print(personal_contact_details_query)
-        personal_contact_details = await database.fetch_one(personal_contact_details_query)
-        if personal_contact_details is not None:
-            contacts.append(personal_contact_details)
+    # contacts = List[User]
+    # for personal_relationship in personal_related_relationships:
+    #     personal_contact_details_query = users.select().where(users.c.phone_number == personal_relationship[3])
+    #     print("Personal Contact Details Query")
+    #     print(personal_contact_details_query)
+    #     personal_contact_details = await database.fetch_one(personal_contact_details_query)
+    #     if personal_contact_details is not None:
+    #         contacts.append(personal_contact_details)
     # for professional_relationship in professional_related_relationships:
     #     professional_contact_details_query = users.select().where(users.c.phone_number == professional_relationship[3])
     #     print(professional_contact_details_query)
