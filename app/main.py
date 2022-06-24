@@ -214,6 +214,11 @@ app.add_middleware(
 # Specify origins more precisely by substituting with
 # allow_origins=['client-facing-example-app.com', 'localhost:5000']
 
+@app.get("/")
+async def root():
+    return {"message": "Welcome to the hood contacts app"}
+
+
 @app.on_event("startup")
 async def startup():
     await database.connect()
@@ -222,7 +227,6 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
-
 
 @app.post("/users/", response_model=UserCreate, status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreate):
