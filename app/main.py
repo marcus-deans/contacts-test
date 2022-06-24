@@ -70,17 +70,17 @@ relationships = sqlalchemy.Table(
 # )
 
 # LOCAL version
-engine = sqlalchemy.create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
-)
-metadata.create_all(engine)
+# engine = sqlalchemy.create_engine(
+#     DATABASE_URL, connect_args={"check_same_thread": False}
+# )
+# metadata.create_all(engine)
 
 
 # PostgreSQL version
-# engine = sqlalchemy.create_engine(
-#     DATABASE_URL
-# )
-# metadata.create_all(engine)
+engine = sqlalchemy.create_engine(
+    DATABASE_URL
+)
+metadata.create_all(engine)
 
 
 # Professional parameters used in both creation, updates, etc.
