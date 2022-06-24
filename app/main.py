@@ -390,7 +390,8 @@ async def fetch_contacts_professional(user_id: str):
         query = users.select().where(users.c.phone_number == professional_id)
         query_result = await database.fetch_one(query)
         if not query_result:
-            raise HTTPException(status_code=305, detail="The contact could not be found")
+            continue
+            # raise HTTPException(status_code=305, detail="The contact could not be found")
         decodedProfessionalParameters = jsonpickle.decode(query_result.professional_parameters)
         decodedPersonalParameters = jsonpickle.decode(query_result.personal_parameters)
         newResponse = {
@@ -409,8 +410,14 @@ async def fetch_contacts_professional(user_id: str):
 
 @app.get("/fetch/{user_id}", response_model=List[UserComplete], status_code=status.HTTP_200_OK)
 async def fetch_contacts(user_id: str):
-    personal_contacts = await fetch_contacts_personal(user_id)
-    professional_contacts = await fetch_contacts_professional(user_id)
+    try:
+        personal_contacts = await fetch_contacts_personal(user_id)
+    except:
+        personal_contacts = []
+    try:
+        professional_contacts = await fetch_contacts_professional(user_id)
+    except:
+        professional_contacts = []
     return personal_contacts + professional_contacts
     # personal_related_relationships_query = relationships.select().where(
     #     and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
@@ -437,7 +444,7 @@ async def fetch_contacts(user_id: str):
     #     professional_contact_details = await database.fetch_one(professional_contact_details_query)
     #     if professional_contact_details is not None:
     #     contacts.append(professional_contact_details)
-    return contacts
+    # return contacts
 
 
 # CREATE PERSONAL RELATIONSHIPS
