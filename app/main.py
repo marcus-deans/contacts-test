@@ -5,7 +5,7 @@ import jsonpickle
 import databases
 import sqlalchemy
 from asyncpg import Record
-from fastapi import FastAPI, status
+from fastapi import FastAPI, status, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Json
@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 import os
 import urllib
 
-# DATABASE_URL = "sqlite:///./test.db"
+DATABASE_URL = "sqlite:///./test.db"
 
 # host_server = os.environ.get('host_server', 'localhost')
 # db_server_port = urllib.parse.quote_plus(str(os.environ.get('db_server_port', '5432')))
@@ -23,7 +23,7 @@ import urllib
 # db_password = urllib.parse.quote_plus(str(os.environ.get('db_password', 'secret')))
 # ssl_mode = urllib.parse.quote_plus(str(os.environ.get('ssl_mode','require')))
 # DATABASE_URL = 'postgresql://{}:{}@{}:{}/{}?sslmode={}'.format(db_username, db_password, host_server, db_server_port, database_name, ssl_mode)
-DATABASE_URL = "postgresql://bntliqohchcrzk:ee8f7b47350fa6d25f66d75be5c186636edd9a5fa0d4ee32d43aaff13b75ed59@ec2-52-22-136-117.compute-1.amazonaws.com:5432/d2e1q9sqmd67oj"
+# DATABASE_URL = "postgresql://bntliqohchcrzk:ee8f7b47350fa6d25f66d75be5c186636edd9a5fa0d4ee32d43aaff13b75ed59@ec2-52-22-136-117.compute-1.amazonaws.com:5432/d2e1q9sqmd67oj"
 
 database = databases.Database(DATABASE_URL)
 
@@ -69,18 +69,18 @@ relationships = sqlalchemy.Table(
 #     sqlalchemy.Column("member5", sqlalchemy.String)
 # )
 
-
-# engine = sqlalchemy.create_engine(
-#     DATABASE_URL, connect_args={"check_same_thread": False}
-# )
-# metadata.create_all(engine)
+# LOCAL version
+engine = sqlalchemy.create_engine(
+    DATABASE_URL, connect_args={"check_same_thread": False}
+)
+metadata.create_all(engine)
 
 
 # PostgreSQL version
-engine = sqlalchemy.create_engine(
-    DATABASE_URL
-)
-metadata.create_all(engine)
+# engine = sqlalchemy.create_engine(
+#     DATABASE_URL
+# )
+# metadata.create_all(engine)
 
 
 # Professional parameters used in both creation, updates, etc.
@@ -109,16 +109,15 @@ class PersonalParameters(BaseModel):
 
 
 # # Model of JSON payload for Create and Update user endpoints
-# class UserCreate(BaseModel):
-#     first_name: str
-#     last_name: str
-#     phone_number: int
-#     email_address: str
-#     linkedin_url: Optional[str] = ''
-#     instagram_url: Optional[str] = ''
-#     professional_parameters: ProfessionalParameters | None = None
-#     personal_parameters: PersonalParameters | None = None
-#     professional_years: Optional[int] = -1
+class UserCreate(BaseModel):
+    first_name: Optional[str]
+    last_name: Optional[str]
+    phone_number: Optional[str]
+    email_address: Optional[str]
+    location: Optional[str]
+    instagram_handle: Optional[str]
+    personal_parameters: PersonalParameters | None = None
+    professional_parameters: ProfessionalParameters | None = None
 
 
 # Model of JSON response for Retrieve users collection, or Retrieve single user
@@ -148,16 +147,27 @@ class User(BaseModel):
 
 
 # Model of JSON response for Retrieve personal information of contact
-class UserPersonal(User):
-    instagram_handle: str
+class UserPersonal(BaseModel):
+    first_name: Optional[str]
+    last_name: Optional[str]
+    phone_number: Optional[str]
+    email_address: Optional[str]
+    location: Optional[str]
+    instagram_handle: Optional[str]
+    personal_parameters: PersonalParameters | None = None
     # personal_parameters: PersonalParameters | None
 
 
 # Model of JSON response for Retrieve professional information of contact
-class UserProfessional(User):
-    linkedin_url: str
-    # professional_years: int
-    # professional_parameters: ProfessionalParameters | None
+class UserProfessional(BaseModel):
+    first_name: Optional[str]
+    last_name: Optional[str]
+    phone_number: Optional[str]
+    email_address: Optional[str]
+    location: Optional[str]
+    instagram_handle: Optional[str]
+    # personal_parameters: PersonalParameters | None = None
+    personal_parameters: PersonalParameters | None
 
 
 # class Group(BaseModel):
@@ -205,8 +215,8 @@ async def shutdown():
     await database.disconnect()
 
 
-@app.post("/users/", response_model=User, status_code=status.HTTP_201_CREATED)
-async def create_user(user: User):
+@app.post("/users/", response_model=UserCreate, status_code=status.HTTP_201_CREATED)
+async def create_user(user: UserCreate):
     query = users.insert().values(
         first_name=user.first_name,
         last_name=user.last_name,
@@ -215,34 +225,91 @@ async def create_user(user: User):
         location=user.location,
         # linkedin_url=user.linkedin_url,
         instagram_handle=user.instagram_handle,
+        # professional_parameters=user.professional_parameters,
+        # personal_parameters=user.personal_parameters,
+        # professional_parameters=json.dumps(jsonable_encoder(user.professional_parameters)),
+        # personal_parameters=json.dumps(jsonable_encoder(user.personal_parameters)),
         professional_parameters=jsonpickle.encode(user.professional_parameters),
         personal_parameters=jsonpickle.encode(user.personal_parameters),
         # professional_years=user.professional_years,
     )
     print(query)
-    last_record_id = await database.execute(query)
+    try:
+        last_record_id = await database.execute(query)
+    except:
+        raise HTTPException(status_code=422, detail="User already in database")
     return {**user.dict(), "id": last_record_id}
+
+# @app.get("/fetch/personal/{user_id}", response_model=List[UserPersonal], status_code=status.HTTP_200_OK)
+# async def fetch_personal_contacts
+
+
+@app.get("/testing/users/{contact_phone_number}/personal", response_model=UserPersonal, status_code=status.HTTP_200_OK)
+async def test_fetch_personal_contact(contact_phone_number: str):
+    query = users.select().where(users.c.phone_number == contact_phone_number)
+    query_result = await database.fetch_one(query)
+    decodedPersonalParameters = jsonpickle.decode(query_result.personal_parameters) if query_result is not None else None
+    if query_result is None:
+        raise HTTPException(status_code=305, detail="User is not in our database")
+    # query_result.personal_parameters = decodedPersonalParameters
+    return {
+        "first_name":query_result.first_name,
+        "last_name":query_result.last_name,
+        "phone_number":query_result.phone_number,
+        "email_address":query_result.email_address,
+        "location":query_result.location,
+        "instagram_handle":query_result.instagram_handle,
+        "personal_parameters":decodedPersonalParameters,
+    }
+
+@app.get("/testing/users/{contact_phone_number}/professional", response_model=UserProfessional, status_code=status.HTTP_200_OK)
+async def test_fetch_professional_contact(contact_phone_number: str):
+    query = users.select().where(users.c.phone_number == contact_phone_number)
+    query_result = await database.fetch_one(query)
+    decodedProfessionalParameters = jsonpickle.decode(query_result.professional_parameters) if query_result is not None else None
+    if query_result is None:
+        raise HTTPException(status_code=305, detail="User is not in our database")
+    # query_result.personal_parameters = decodedPersonalParameters
+    return {
+        "first_name":query_result.first_name,
+        "last_name":query_result.last_name,
+        "phone_number":query_result.phone_number,
+        "email_address":query_result.email_address,
+        "location":query_result.location,
+        "instagram_handle":query_result.instagram_handle,
+        "professional_parameters":decodedProfessionalParameters,
+    }
+
 
 @app.get("/fetch/{user_id}", response_model=List[User], status_code=status.HTTP_200_OK)
 async def fetch_contacts(user_id: str):
-    personal_related_relationships_query = relationships.select().where(and_(or_(relationships.c.initiator_id == user_id,relationships.c.receiver_id == user_id),(relationships.c.isPersonal == True)))
+    personal_related_relationships_query = relationships.select().where(
+        and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
+             (relationships.c.isPersonal == True)))
     personal_related_relationships = await database.fetch_all(personal_related_relationships_query)
+    print("Personal Related Relationships Query")
     print(personal_related_relationships_query)
-    professional_related_relationships_query = relationships.select().where(and_(or_(relationships.c.initiator_id == user_id,relationships.c.receiver_id == user_id),(relationships.c.isPersonal == False)))
-    professional_related_relationships = await database.fetch_all(professional_related_relationships_query)
-    print(professional_related_relationships_query)
-    contacts=List[User]
+    # professional_related_relationships_query = relationships.select().where(
+    #     and_(or_(relationships.c.initiator_id == user_id, relationships.c.receiver_id == user_id),
+    #          (relationships.c.isPersonal == False)))
+    # professional_related_relationships = await database.fetch_all(professional_related_relationships_query)
+    # print(professional_related_relationships_query)
+    contacts = List[User]
     for personal_relationship in personal_related_relationships:
         personal_contact_details_query = users.select().where(users.c.phone_number == personal_relationship[3])
+        print("Personal Contact Details Query")
         print(personal_contact_details_query)
         personal_contact_details = await database.fetch_one(personal_contact_details_query)
-        contacts.append(personal_contact_details)
-    for professional_relationship in professional_related_relationships:
-        professional_contact_details_query = users.select().where(users.c.phone_number == professional_relationship[3])
-        print(professional_contact_details_query)
-        professional_contact_details = await database.fetch_one(professional_contact_details_query)
-        contacts.append(professional_contact_details)
+        if personal_contact_details is not None:
+            contacts.append(personal_contact_details)
+    # for professional_relationship in professional_related_relationships:
+    #     professional_contact_details_query = users.select().where(users.c.phone_number == professional_relationship[3])
+    #     print(professional_contact_details_query)
+    #     professional_contact_details = await database.fetch_one(professional_contact_details_query)
+    #     if professional_contact_details is not None:
+    #     contacts.append(professional_contact_details)
     return contacts
+
 
 # CREATE PERSONAL RELATIONSHIPS
 @app.post("/relationships/{user_id}/personal/{contact_phone_number}", response_model=Relationship,
@@ -302,7 +369,7 @@ async def create_group(user_id: str, group_id: str):
     return {"group_id": group_id, "user_id": user_id}
 
 
-@app.get("/users/{user_id}/read-group/{group_id}", response_model=List[User], status_code=status.HTTP_102_PROCESSING)
+@app.get("/users/{user_id}/read-group/{group_id}", response_model=List[User], status_code=status.HTTP_200_OK)
 async def fetch_group(user_id: int, group_id: int):
     query = users.select().where(users.c.group_id == group_id)
     return await database.fetch_all(query)
@@ -380,3 +447,19 @@ async def remove_user(user_id: int):
 
 #
 #
+
+
+# @app.get("/users/{contact_phone_number}/professional-parameters", response_model=ProfessionalParameters,
+#          status_code=status.HTTP_200_OK)
+# async def read_professional_parameters(contact_phone_number: str):
+#     query = users.select().where(users.c.phone_number == contact_phone_number)
+#     query_result = await database.fetch_one(query)
+#     return jsonpickle.decode(query_result.professional_parameters) if query_result is not None else None
+#
+#
+# @app.get("/users/{contact_phone_number}/personal-parameters", response_model=PersonalParameters,
+#          status_code=status.HTTP_200_OK)
+# async def read_personal_parameters(contact_phone_number: str):
+#     query = users.select().where(users.c.phone_number == contact_phone_number)
+#     query_result = await database.fetch_one(query)
+#     return jsonpickle.decode(query_result.personal_parameters) if query_result is not None else None
