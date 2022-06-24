@@ -227,15 +227,19 @@ async def create_user(user: User):
 async def fetch_contacts(user_id: str):
     personal_related_relationships_query = relationships.select().where(and_(or_(relationships.c.initiator_id == user_id,relationships.c.receiver_id == user_id),(relationships.c.isPersonal == True)))
     personal_related_relationships = await database.fetch_all(personal_related_relationships_query)
+    print(personal_related_relationships_query)
     professional_related_relationships_query = relationships.select().where(and_(or_(relationships.c.initiator_id == user_id,relationships.c.receiver_id == user_id),(relationships.c.isPersonal == False)))
     professional_related_relationships = await database.fetch_all(professional_related_relationships_query)
+    print(professional_related_relationships_query)
     contacts=List[User]
     for personal_relationship in personal_related_relationships:
         personal_contact_details_query = users.select().where(users.c.phone_number == personal_relationship[3])
+        print(personal_contact_details_query)
         personal_contact_details = await database.fetch_one(personal_contact_details_query)
         contacts.append(personal_contact_details)
     for professional_relationship in professional_related_relationships:
         professional_contact_details_query = users.select().where(users.c.phone_number == professional_relationship[3])
+        print(professional_contact_details_query)
         professional_contact_details = await database.fetch_one(professional_contact_details_query)
         contacts.append(professional_contact_details)
     return contacts
@@ -279,7 +283,7 @@ async def create_professional_relationships(user_id: str, contact_phone_number: 
 
 
 # CREATE GROUP
-@app.post("/groups/{user_id}/create/{group_id}", response_model=Group, status_code=status.HTTP_200_OK)
+@app.post("/groups/{user_id}/create/{group_id}", status_code=status.HTTP_200_OK)
 async def create_group(user_id: str, group_id: str):
     # query = relationships.insert().values(
     #     # TODO: CHANGE THE GROUP ID - prithvi; don't think we need it - Marcus
