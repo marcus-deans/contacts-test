@@ -1,55 +1,55 @@
-# 
-FROM python:3.9 as requirements-stage
+# # 
+# FROM python:3.9 as requirements-stage
 
-# 
-WORKDIR /tmp
+# # 
+# WORKDIR /tmp
 
-# 
-RUN pip install poetry
+# # 
+# RUN pip install poetry
 
-# 
-COPY ./pyproject.toml ./poetry.lock* /tmp/
+# # 
+# COPY ./pyproject.toml ./poetry.lock* /tmp/
 
-# 
-RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
+# # 
+# RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
 
-# 
-FROM python:3.9
+# # 
+# FROM python:3.9
 
-# 
-WORKDIR /code
+# # 
+# WORKDIR /code
 
-# 
-COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
+# # 
+# COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
 
-# 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+# # 
+# RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-# 
-COPY ./app /code/app
+# # 
+# COPY ./app /code/app
 
-# 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
+# # 
+# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
 
 
 #### ORIGINAL #####
 
-# FROM python:3.9
+FROM python:3.9
 
-# WORKDIR /src
+WORKDIR /src
 
-# ENV POETRY_VERSION=1.1.13
+ENV POETRY_VERSION=1.1.13
 
-# RUN pip install "poetry==$POETRY_VERSION"
+RUN pip install "poetry==$POETRY_VERSION"
 
-# COPY poetry.lock pyproject.toml /src/
+COPY poetry.lock pyproject.toml /src/
 
-# RUN poetry config virtualenvs.create false \
-#   && poetry install --no-interaction --no-ansi
+RUN poetry config virtualenvs.create false \
+  && poetry install --no-interaction --no-ansi
 
-# COPY docker-entrypoint.sh app /src/
+COPY docker-entrypoint.sh app /src/
 
-# ENTRYPOINT [ "./docker-entrypoint.sh" ]
+ENTRYPOINT [ "./docker-entrypoint.sh" ]
 
 #### ALTERNATE #######
 
